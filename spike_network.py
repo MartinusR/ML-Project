@@ -39,7 +39,7 @@ class SpikeNetwork(object):
         self.T_vect = self.T * np.ones(N)
         set_all_args(self, kwargs)
         # a list of pairs
-        self.tau = 0
+        self.tau = 1
         self.V = [np.zeros(self.N)]
         self.o = [np.zeros(self.N)]
         self.r = [np.zeros(self.N)]
@@ -80,6 +80,8 @@ class SpikeNetwork(object):
         self.V.append(V)
         self.r.append(r)
         self.o.append(o)
+
+        self.tau += 1
 
 
     def simulate(self, iter_num=None):

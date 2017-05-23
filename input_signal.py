@@ -17,7 +17,7 @@ def input_signal(I, S, sigma, delta_t, eta):
     """
     c = []
     for _ in range(I):
-        c_tmp = np.random.randn(Gamma)
+        c_tmp = sigma * np.random.randn(Gamma)
         #plt.plot(np.linspace(0,S,Gamma),c_tmp)
         #plt.show()
         #fig, ax = plt.subplots()
