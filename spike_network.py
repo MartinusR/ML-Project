@@ -55,24 +55,32 @@ class SpikeNetwork(object):
 
     def step(self):
         
-        c = (self.x[self.tau] + self.x[self.tau-1] 
+        c = (self.x[self.tau] - self.x[self.tau-1] 
             + self.lamb * self.delta_t * self.x[self.tau-1])
         
-        V = ((1 - self.lamb * self.delta_t)  * self.V[-1]
+        V = ((1 - self.lamb * self.delta_t) * self.V[-1]
             + self.delta_t * np.dot(self.F, c)
             + np.dot(self.Omega, self.o[-1])
             + self.sigma_V * np.random.randn(self.N))
+        #if self.tau % 20 == 0:
+        #    print(self.delta_t * np.dot(self.F, c))
+        #    print(np.dot(self.Omega, self.o[-1]))
 
         
         r = (1 - self.lamb*self.delta_t) * self.r[-1] + self.o[-1]
 
         o = np.zeros(self.N)
-        n = np.argmax(V - self.T_vect - self.sigma_V*np.random.randn(self.N))
+        n = np.argmax(V - self.T_vect - self.sigma_T*np.random.randn(self.N))
+        
+        #if self.tau % 20 == 19:
+        #    print(n)
+        #    print(r) 
+        #    print(self.epsilon_F*(self.alpha*self.x[self.tau-1]-self.F[n]))
         
         if V[n] > self.T_vect[n]:
             o[n] = 1
             self.F[n] += (
-                self.epsilon_F * (self.alpha * self.x[self.tau-1] - self.F[n]))
+                self.epsilon_F*(self.alpha*self.x[self.tau-1]-self.F[n]))
             self.Omega[:,n] -= (
                 self.epsilon_Omega*(self.beta*(V+self.mu*r)+self.Omega[:,n]))
             self.Omega[n,n] -= self.epsilon_Omega * self.mu
@@ -89,7 +97,4 @@ class SpikeNetwork(object):
             iter_num = len(self.x) - 1
         for _ in range(iter_num):
             self.step()
-
-        
-    
 
