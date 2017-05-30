@@ -1,6 +1,4 @@
-
 import numpy as np
-
 from utility import set_all_args
 
 
@@ -14,16 +12,20 @@ class SpikeNetwork(object):
     sigma_T = 2e-2
     epsilon_Omega = 1e-4
     epsilon_F = 1e-5
-    alpha = 0.21
+    alpha = 0.2
     beta = 1.25
-    mu = 0.02
+    mu = 0.1
     gamma = 0.8
     omega = -0.5
 
-
     def __init__(self, N, I, x,  F=None, Omega=None, **kwargs):
         """
-        x: vector of input
+        :param N: number of neurons
+        :param I: dimension of input
+        :param x: vector of input
+        :param F: Input weights
+        :param Omega: recurrent weights
+        :param kwargs: other parameters
         """
 
         self.N = N
@@ -31,56 +33,89 @@ class SpikeNetwork(object):
         self.x = x
 
         self.F = F
-        if F is None: self.init_F()
+        if F is None:
+            self.init_F()
 
         self.Omega = Omega
-        if Omega is None: self.init_Omega()
+        if Omega is None:
+            self.init_Omega()
 
-        self.T_vect = self.T * np.ones(N)
+        self.T_vect = self.T * np.ones(N)       # Thresholds
         set_all_args(self, kwargs)
         # a list of pairs
-        self.tau = 0
-        self.V = [np.zeros(self.N)]
-        self.o = [np.zeros(self.N)]
-        self.r = [np.zeros(self.N)]
+        self.tau = 1
+        self.V = [np.zeros(self.N)]             # Membrane potentials through time
+        self.o = [np.zeros(self.N)]             # Output spikes
+        self.r = [np.zeros(self.N)]             # Filtered output spikes
 
+        self.D = np.zeros((self.I, self.N))     # Decoder
+
+        # Tmp, for debug
+        self.spike = None
+        self.avg_post = 0
+        self.nb_spikes = 0
+        self.avg_pre = 0
 
     def init_F(self):
+        """
+        Initializes input weights randomly, and normalizes them to length gamma.
+        """
         self.F = np.random.randn(self.N, self.I)
         self.F *= self.gamma / np.linalg.norm(self.F, axis=1)[:,None]
 
     def init_Omega(self):
+        """
+        Initializes recurrent weights to diagonal matrix.
+        """
         self.Omega = self.omega * np.eye(self.N)
 
 
     def step(self):
-        
-        c = (self.x[self.tau] + self.x[self.tau-1] 
+        """
+        Computes one step of propagation and weight updates.
+        """
+        # We update the values of inputs and membrane potentials
+        c = (self.x[self.tau] - self.x[self.tau-1] 
             + self.lamb * self.delta_t * self.x[self.tau-1])
         
-        V = ((1 - self.lamb * self.delta_t)  * self.V[-1]
+        V = ((1 - self.lamb * self.delta_t) * self.V[-1]
             + self.delta_t * np.dot(self.F, c)
             + np.dot(self.Omega, self.o[-1])
             + self.sigma_V * np.random.randn(self.N))
 
-        
         r = (1 - self.lamb*self.delta_t) * self.r[-1] + self.o[-1]
 
+        # TMP: Saves the membrane potentials after each spike
+        if self.spike is not None:
+            self.avg_post += V[self.spike]
+            self.nb_spikes += 1
+        self.spike = None
+
+        # We check if a neuron fires a spike
         o = np.zeros(self.N)
-        n = np.argmax(V - self.T_vect - self.sigma_V*np.random.randn(self.N))
-        
+        n = np.argmax(V - self.T_vect - self.sigma_T*np.random.randn(self.N))
+
         if V[n] > self.T_vect[n]:
+            # Neuron n fires
+
+            # TMP : saves potential before spike
+            self.spike = n
+            self.avg_pre += V[n]
+
             o[n] = 1
+
+            # Updates weights
             self.F[n] += (
-                self.epsilon_F * (self.alpha * self.x[self.tau-1] - self.F[n]))
-            self.Omega[:,n] -= (
-                self.epsilon_Omega*(self.beta*(V+self.mu*r)+self.Omega[:,n]))
-            self.Omega[n,n] -= self.epsilon_Omega * self.mu
+                self.epsilon_F*(self.alpha*self.x[self.tau-1]-self.F[n]))
+            self.Omega[:, n] -= (
+                self.epsilon_Omega*(self.beta*(V+self.mu*r)+self.Omega[:, n]))
+            self.Omega[n, n] -= self.epsilon_Omega * self.mu
 
         self.V.append(V)
         self.r.append(r)
         self.o.append(o)
 
+        self.tau += 1
 
     def simulate(self, iter_num=None):
         if iter_num is None:
@@ -88,6 +123,28 @@ class SpikeNetwork(object):
         for _ in range(iter_num):
             self.step()
 
-        
-    
+    def compute_decoder(self):
+        """
+        Computes the optimal decoder according to the observed responses and input.
+        We use here the explicit formula for optimal D, being given x and r.
+        """
+        # TODO The decoder may be computed on the signal, but with the final weights ? (And no more updates?)
+        avg1 = np.zeros((self.I, self.N))
+        avg2 = np.zeros((self.N, self.N))
+        nb = len(self.r)
 
+        for i in range(nb):
+            r = self.r[i]
+            x = self.x[i]
+
+            avg1 += np.outer(x, r)
+            avg2 += np.outer(r, r)
+
+        avg1 /= nb
+        avg2 /= nb
+
+        self.D = np.dot(avg1, np.linalg.inv(avg2))
+
+    def decode(self):
+        # TODO Idem : May be computed with final weights ?
+        return [np.dot(self.D, r) for r in self.r]
