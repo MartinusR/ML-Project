@@ -33,7 +33,7 @@ def input_signal(I, S, sigma, delta_t, eta):
 
 def simulation(I, S, sigma=2e3, delta_t=1e-4, eta=6e-3):
     x = input_signal(I, S, sigma, delta_t, eta)
-    network = SpikeNetwork(20, I, x, delta_t=delta_t)
+    network = SpikeNetwork(20, I, x, delta_t=delta_t, mu=100)
     return x, network
 
 
