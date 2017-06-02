@@ -6,11 +6,11 @@ class SpikeNetwork(object):
 
     # network parameters
     delta_t = 1e-3
-    lamb = 50
+    lamb = 1 # 50
     T = 0.5
     sigma_V = 1e-3
     sigma_T = 2e-2
-    epsilon_Omega = 1e-4
+    epsilon_Omega = 1e-2 # 1e-4
     epsilon_F = 1e-5
     alpha = 0.2
     beta = 1.25
@@ -75,8 +75,8 @@ class SpikeNetwork(object):
         Computes one step of propagation and weight updates.
         """
         # We update the values of inputs and membrane potentials
-        c = (self.x[self.tau] - self.x[self.tau-1] 
-            + self.lamb * self.delta_t * self.x[self.tau-1])
+        c = ((self.x[self.tau] - self.x[self.tau-1]) / self.delta_t
+            + self.lamb * self.x[self.tau-1]) #??
         
         V = ((1 - self.lamb * self.delta_t) * self.V[-1]
             + self.delta_t * np.dot(self.F, c)

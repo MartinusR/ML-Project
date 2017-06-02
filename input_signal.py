@@ -1,18 +1,15 @@
 import numpy as np
-from scipy import signal
+from scipy import signal, ndimage
 import matplotlib.pyplot as plt
 from spike_network import SpikeNetwork
 
 
 def input_signal(I, S, sigma, delta_t, eta):
     Gamma = int(S/delta_t)
+    c = sigma * np.random.randn(Gamma, I)
+    return ndimage.filters.gaussian_filter1d(c, eta/delta_t/4, axis=0)
+    """
     #c = [sigma * np.random.randn(I) for _ in range(Gamma)]
-    """
-    x = np.zeros(Gamma)
-    x[0] = np.zeros(I)
-    for _ in range(Gamma-1):
-        x = -
-    """
     c = []
     #plt.ion()
     for _ in range(I):
@@ -22,18 +19,19 @@ def input_signal(I, S, sigma, delta_t, eta):
         #plt.show()
         window = signal.gaussian(int(eta/delta_t),std=eta/delta_t/7)
         #fig, ax = plt.subplots()
-        #plt.plot(np.linspace(0,eta,int(eta/delta_t)),window)
-        #plt.show()
+        plt.plot(np.linspace(0,eta,int(eta/delta_t)),window)
+        plt.show()
         c.append(signal.fftconvolve(c_tmp, window, mode='same'))
         #fig, ax = plt.subplots()
         #plt.plot(np.linspace(0,S,Gamma),c[-1])
         #plt.show()
     return np.transpose(np.array(c))
+    """
     
 
-def simulation(I, S, sigma=2e3, delta_t=1e-4, eta=6e-3):
+def simulation(I, S, sigma=2e3, delta_t=1e-3, eta=6e-3): # eta 2e-2
     x = input_signal(I, S, sigma, delta_t, eta)
-    network = SpikeNetwork(20, I, x, delta_t=delta_t, mu=100)
+    network = SpikeNetwork(10, I, x, delta_t=delta_t, mu=0.02)
     return x, network
 
 
