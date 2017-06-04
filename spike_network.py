@@ -8,6 +8,10 @@ class SpikeNetwork(object):
     lamb: 1/lamb = charac time, attention to relation between c and lamb
     T: threshold
     alpha: this shall depend on x (big x -> small alpha)
+
+    Attention:
+    delta_t * c should be close to V (so close to T)
+    alpha * x should be close to F (and F * x close to V)
     """
 
     # network parameters
@@ -60,16 +64,9 @@ class SpikeNetwork(object):
 
         self.D = np.zeros((self.I, self.N))     # Decoder
 
-        # Tmp, for debug
-        self.spike = None
-        self.avg_post = 0
-        self.nb_spikes = 0
-        self.avg_pre = 0
+        self.c = (
+            (self.x[1:]-self.x[:-1]) / self.delta_t + self.lamb * self.x[:-1])
 
-        self.c = np.zeros((len(x), self.I))
-        self.c[:-1] = (((self.x[1:] - self.x[:-1]) / self.delta_t) + 
-                     self.lamb * self.x[:-1])
-        #self.c = self.c/np.std(self.c[:-1])*20      # ~ 1e2
 
     def init_F(self):
         """
@@ -90,6 +87,9 @@ class SpikeNetwork(object):
             self.x[i+1] = (
                 self.x[i] + (-self.lamb * self.x[i] 
                 + self.c[i]) * self.delta_t)
+
+    def step_no_update(self):
+
 
     def step(self):
         """
@@ -149,15 +149,14 @@ class SpikeNetwork(object):
 
     def compute_decoder(self):
         """
-        Computes the optimal decoder according to the observed responses and input.
+        Computes the optimal decoder according to the observed responses 
+        and input over the last 1000 time stps.
         We use here the explicit formula for optimal D, being given x and r.
         """
-        # TODO The decoder may be computed on the signal, but with the final weights ? (And no more updates?)
         avg1 = np.zeros((self.I, self.N))
         avg2 = np.zeros((self.N, self.N))
-        nb = len(self.r)
 
-        for i in range(nb):
+        for i in range(1000):
             r = self.r[i]
             x = self.x[i]
 

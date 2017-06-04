@@ -8,25 +8,6 @@ def input_signal(I, S, sigma, delta_t, eta):
     Gamma = int(S/delta_t)
     c = sigma * np.random.randn(Gamma, I)
     return ndimage.filters.gaussian_filter1d(c, eta/delta_t/4, axis=0)
-    """
-    #c = [sigma * np.random.randn(I) for _ in range(Gamma)]
-    c = []
-    #plt.ion()
-    for _ in range(I):
-        c_tmp = sigma * np.random.randn(Gamma)
-        #fig, ax = plt.subplots()
-        #plt.plot(np.linspace(0,S,Gamma),c_tmp)
-        #plt.show()
-        window = signal.gaussian(int(eta/delta_t),std=eta/delta_t/7)
-        #fig, ax = plt.subplots()
-        plt.plot(np.linspace(0,eta,int(eta/delta_t)),window)
-        plt.show()
-        c.append(signal.fftconvolve(c_tmp, window, mode='same'))
-        #fig, ax = plt.subplots()
-        #plt.plot(np.linspace(0,S,Gamma),c[-1])
-        #plt.show()
-    return np.transpose(np.array(c))
-    """
     
 
 def simulation(I, S, sigma=2e3, delta_t=1e-3, eta=6e-3): # eta 2e-2
