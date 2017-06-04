@@ -24,6 +24,7 @@ class simulation(object):
         self.reconstructions_errors = []
         self.avg_firing_rates = []
         self.iter_num = 0
+        self.firing_rates = []
 
     def init_network(self):
         self.x = input_signal(
@@ -58,6 +59,8 @@ class simulation(object):
                 x, x_ = self.net.decode('decode', 'decode')
                 err = np.linalg.norm(x-x_)
                 self.reconstructions_errors.append(err)
+
+                self.firing_rates.append(np.sum(self.exp.o[-1000:], axis=0))
             self.iter_num += nb
 
     def tuning_curves(self, nb_points=100, sample_len=100, radius=None):
