@@ -6,11 +6,11 @@ class SpikeNetwork(object):
 
     # network parameters
     delta_t = 1e-3
-    lamb = 1 # 50
+    lamb = 50
     T = 0.5
     sigma_V = 1e-3
     sigma_T = 2e-2
-    epsilon_Omega = 1e-2 # 1e-4
+    epsilon_Omega = 1e-2  # 1e-4
     epsilon_F = 1e-5
     alpha = 0.2
     beta = 1.25
@@ -31,6 +31,10 @@ class SpikeNetwork(object):
         self.N = N
         self.I = I
         self.x = x
+        self.c = np.zeros(x.shape)
+        self.c[1:, :] = ((self.x[1:] - self.x[:-1]) / self.delta_t
+                         + self.lamb * self.x[:-1])
+        self.c /= np.std(self.c, axis=0) / 45
 
         self.F = F
         if F is None:
@@ -75,14 +79,17 @@ class SpikeNetwork(object):
         Computes one step of propagation and weight updates.
         """
         # We update the values of inputs and membrane potentials
-        c = ((self.x[self.tau] - self.x[self.tau-1]) / self.delta_t
-            + self.lamb * self.x[self.tau-1]) #??
-        
+        # c = ((self.x[self.tau] - self.x[self.tau-1]) / self.delta_t
+        #     + self.lamb * self.x[self.tau-1])
+        c = self.c[self.tau]
+
         V = ((1 - self.lamb * self.delta_t) * self.V[-1]
             + self.delta_t * np.dot(self.F, c)
-            + np.dot(self.Omega, self.o[-1])
+            + np.dot(self.Omega, self.o[-1])  # There should be delta_t here, but we don't put it for scaling reasons
             + self.sigma_V * np.random.randn(self.N))
 
+        # There should be the below deltat_t, but for scaling reasons, we don't put it.
+        # r = (1 - self.lamb*self.delta_t) * self.r[-1] + self.delta_t * self.o[-1]
         r = (1 - self.lamb*self.delta_t) * self.r[-1] + self.o[-1]
 
         # TMP: Saves the membrane potentials after each spike
@@ -143,8 +150,24 @@ class SpikeNetwork(object):
         avg1 /= nb
         avg2 /= nb
 
-        self.D = np.dot(avg1, np.linalg.inv(avg2))
+        self.D = np.dot(avg1, np.linalg.pinv(avg2))
 
     def decode(self):
         # TODO Idem : May be computed with final weights ?
         return [np.dot(self.D, r) for r in self.r]
+
+    def reset(self, weights=False):
+        self.tau = 1
+        self.V = [np.zeros(self.N)]
+        self.o = [np.zeros(self.N)]
+        self.r = [np.zeros(self.N)]
+
+        # Tmp, for debug
+        self.spike = None
+        self.avg_post = 0
+        self.nb_spikes = 0
+        self.avg_pre = 0
+
+        if weights:
+            self.init_F()
+            self.init_Omega()
