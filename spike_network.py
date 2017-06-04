@@ -3,6 +3,12 @@ from utility import set_all_args
 
 
 class SpikeNetwork(object):
+    """
+    delta_t: time step
+    lamb: 1/lamb = charac time, attention to relation between c and lamb
+    T: threshold
+    alpha: this shall depend on x (big x -> small alpha)
+    """
 
     # network parameters
     delta_t = 1e-3
@@ -10,7 +16,7 @@ class SpikeNetwork(object):
     T = 0.5
     sigma_V = 1e-3
     sigma_T = 2e-2
-    epsilon_Omega = 1e-2  # 1e-4
+    epsilon_Omega = 1e-4
     epsilon_F = 1e-5
     alpha = 0.2
     beta = 1.25
@@ -44,12 +50,12 @@ class SpikeNetwork(object):
         if Omega is None:
             self.init_Omega()
 
-        self.T_vect = self.T * np.ones(N)       # Thresholds
+        self.T_vect = self.T * np.ones(N)  # Thresholds
         set_all_args(self, kwargs)
         # a list of pairs
         self.tau = 1
-        self.V = [np.zeros(self.N)]             # Membrane potentials through time
-        self.o = [np.zeros(self.N)]             # Output spikes
+        self.V = [np.zeros(self.N)]         # Membrane potentials through time
+        self.o = [np.zeros(self.N)]         # Output spikes
         self.r = [np.zeros(self.N)]             # Filtered output spikes
 
         self.D = np.zeros((self.I, self.N))     # Decoder
@@ -60,9 +66,15 @@ class SpikeNetwork(object):
         self.nb_spikes = 0
         self.avg_pre = 0
 
+        self.c = np.zeros((len(x), self.I))
+        self.c[:-1] = (((self.x[1:] - self.x[:-1]) / self.delta_t) + 
+                     self.lamb * self.x[:-1])
+        #self.c = self.c/np.std(self.c[:-1])*20      # ~ 1e2
+
     def init_F(self):
         """
-        Initializes input weights randomly, and normalizes them to length gamma.
+        Initializes input weights randomly, 
+        and normalizes them to length gamma.
         """
         self.F = np.random.randn(self.N, self.I)
         self.F *= self.gamma / np.linalg.norm(self.F, axis=1)[:,None]
@@ -73,15 +85,20 @@ class SpikeNetwork(object):
         """
         self.Omega = self.omega * np.eye(self.N)
 
+    def compute_another_x(self):
+        for i in range(len(self.x)-1):
+            self.x[i+1] = (
+                self.x[i] + (-self.lamb * self.x[i] 
+                + self.c[i]) * self.delta_t)
 
     def step(self):
         """
         Computes one step of propagation and weight updates.
         """
         # We update the values of inputs and membrane potentials
-        # c = ((self.x[self.tau] - self.x[self.tau-1]) / self.delta_t
-        #     + self.lamb * self.x[self.tau-1])
-        c = self.c[self.tau]
+        #c = ((self.x[self.tau] - self.x[self.tau-1]) / self.delta_t
+        #    + self.lamb * self.x[self.tau-1]) #??
+        c = self.c[self.tau-1]
 
         V = ((1 - self.lamb * self.delta_t) * self.V[-1]
             + self.delta_t * np.dot(self.F, c)
