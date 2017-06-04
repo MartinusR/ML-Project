@@ -10,11 +10,6 @@ def input_signal(I, S, sigma, delta_t, eta):
     return ndimage.filters.gaussian_filter1d(c, eta/delta_t/4, axis=0)
     
 
-def simulation(I, S, exp_name, sigma=10, delta_t=1e-3, eta=0.1):
-    x = input_signal(I, S, sigma, delta_t, eta)
-    network = SpikeNetwork(20, I, delta_t=delta_t, mu=0.02)
-    network.supply_input(exp_name, x)
-    return x, network
 
 
 # for the moment being, just call this function with network.o and delta_t

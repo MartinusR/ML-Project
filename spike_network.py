@@ -94,7 +94,7 @@ class SpikeNetwork(object):
     def init_exp(self, exp_name):
         self.exps[exp_name] = ExpData(self.N, self.delta_t, self.lamb)
 
-    def supply_input(self, exp_name, x):
+    def supply_input(self, exp_name, x, erase=False):
         """
         To simulate the network first supply the input signal
         :param x: vector of input
@@ -103,9 +103,13 @@ class SpikeNetwork(object):
             print("You supply new data")
             self.init_exp(exp_name)
             self.exps[exp_name].x = x
-        elif hasattr(self.exps[exp_name], 'x'):
+        elif hasattr(self.exps[exp_name], 'x') and not erase:
             print("You add data to an experience that already exists")
             self.exps[exp_name].x = np.append(self.exps[exp_name].x, x, axis=0)
+        elif hasattr(self.exps[exp_name], 'x'):
+            #print("You erase old data")
+            self.init_exp(exp_name)
+            self.exps[exp_name].x = x
         else:
             print("You supply new data")
             self.exps[exp_name].x = x
@@ -181,7 +185,7 @@ class SpikeNetwork(object):
         supply the signal, run the simulation, return the result
         mainly when the neuron is already trained to see the result
         """
-        self.supply_input(exp_name, x)
+        self.supply_input(exp_name, x, erase=True)
         self.simulate(exp_name, learn=learn)
         return self.get_exp(exp_name)
 
