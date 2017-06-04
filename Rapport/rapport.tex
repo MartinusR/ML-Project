@@ -1,0 +1,74 @@
+\documentclass[a4paper,10pt, english]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{graphicx}
+\newcommand{\code}[1]{\texttt{#1}}
+\newcommand{\chan}{\texttt{channel} }
+
+% Title Page
+\title{Autoencoder - Learning to represent signals spike by spike}
+\author{Yu-Guan Hsieh, Martin Ruffel}
+
+
+\begin{document}
+\maketitle
+
+\section*{Recap of our work}
+
+We worked on the spiking autoencoder. We started from a standard spiking network trying to represent an input signal.
+Then, we added recurrent weights to simulate the substraction of the estimate, and to force neurons' potentials
+to encode the signal reconstruction error. 
+
+
+We rederived the main equations and learning rules of the network, starting from the potential equations, 
+and the loss function $L = ||x - \hat{x}||^2 + \nu \sum{r_{i}} + \mu \sum{r_{i}^2}$ which penalizes high 
+firing rates. We followed the same path as in the article's appendix.
+
+\begin{itemize}
+ \item To simulate the reconstruction error, we want to have $\Omega = FD$
+ \item Then, the potentials $V$ represent approximately the projection $F(x - \hat{x})$ of the error.
+ \item We want neuron $i$ to spike if and only if its spike reduces the loss function $L$. Putting this 
+ in equations, and identifying terms as membrane threshold and potential allows us to obtain the optimal 
+ decoder $D = F^\top$.
+ \item Since $V$ is proportionnal to reconstruction error, we want to minimize $V$. Therefore, we derive 
+ a simple learning rule for $\Omega$ :
+ \begin{center}
+  {$\Delta\Omega_{i,j} = -V_{i} -\Omega_{i,j}$} when neuron j spikes
+ \end{center}
+Indeed, this corresponds to reset potential of all the neurons at each spike.
+ \item Adding the L2 penalization term changes this learning rule because it adds term $-\mu r$ in potential $V$:
+ \begin{center}
+   \centering{$\Delta\Omega_{i,j} = -V_{i} - \mu r_i - \Omega_{i,j}  -\mu\delta_{i, j}$}
+ \end{center}
+ \item If we suppose that $F$ is updated a lot slower than $\Omega$, then some equations give us a similar 
+ learning rule for $F$ :
+ \begin{center}
+  $\Delta F_{i,j} = (x - \hat{x}) - F$, what is approximated by $\Delta F_{i,j} = \alpha x - F$ when neuron i spikes
+ \end{center}
+\end{itemize}
+
+With these learning rules, we have implemented in Python the spiking autoencoder, using the article's Appendix pseudo-code.
+But when we launched some tests to see if these equations work, we obtained a lot of problems.
+\begin{itemize}
+ \item There were some little errors in pseudo-code, or unexplained modifications.
+ \item The obtained network was very unstable with the given parameters. Indeed, after some training steps,
+ only a few neurons were spiking almost at each time step, and the others did nothing. We spent a lot of 
+ time trying to solve this, and modifying constants like $\lambda$, $\mu$, definition of $c$ to obtain coherent 
+ results. After two weeks, we finally found some nice parameters.
+ \item With these new parameters, the weights $F$ don't change a lot, and therefore tuning curves don't move through
+ training to cover the whole input space.
+ \item Reconstruction error doesn't seem to decrease through training.
+ \item It is very hard to adjust parameters of input and network to obtain such nice reconstructions as in 
+ the main paper.
+ 
+\end{itemize}
+
+
+The only satisfying results we obtained were that the firing rates decrease during the training : there are divided
+by at least 4.
+
+Since we didn't get nice results, we couldn't compare the outputs of the network to independent Poisson processes, and we didn't
+try to feed the network with correlated inputs.
+
+
+\end{document}          
