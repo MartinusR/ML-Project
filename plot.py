@@ -37,7 +37,7 @@ class simulation(object):
         x_std = np.std(self.x)
         c_std = np.std(self.exp.c)
         self.net.lamb_x = c_std / x_std
-        F_order = self.net.T / (self.net.delta_t*c_std*10)
+        F_order = self.net.T / (self.net.delta_t*c_std)
         self.net.gamma = F_order
         self.net.init_F()
         self.net.alpha = F_order / (x_std*4)
