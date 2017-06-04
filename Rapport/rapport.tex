@@ -28,8 +28,8 @@ firing rates. We followed the same path as in the article's appendix.
  \item To simulate the reconstruction error, we want to have $\Omega = FD$
  \item Then, the potentials $V$ represent approximately the projection $F(x - \hat{x})$ of the error.
  \item We want neuron $i$ to spike if and only if its spike reduces the loss function $L$. Putting this 
- in equations, and identifying terms as membrane threshold and potential allows us to obtain the optimal 
- decoder $D = F^\top$.
+ in equations, we obtain an inequation that can be rewritten as a threshold condition. It corresponds directly to a LIF neuron's spiking condition, if we identify terms as membrane threshold and potential.
+ This identifiaction allows us to obtain the expression of the optimal decoder $D = F^\top$.
  \item Since $V$ is proportionnal to reconstruction error, we want to minimize $V$. Therefore, we derive 
  a simple learning rule for $\Omega$ :
  \begin{center}
@@ -59,7 +59,9 @@ But when we launched some tests to see if these equations work, we obtained a lo
  training to cover the whole input space.
  \item Reconstruction error doesn't seem to decrease through training.
  \item It is very hard to adjust parameters of input and network to obtain such nice reconstructions as in 
- the main paper.
+ the main paper, especially to choose the input parameters. Indeed, we didn't understand well what was the role of $c$ instead of $x$, 
+ and which parameters we should choose to obtain coherent $x$ and $c$. Because the terms in learning rules imply to fix $c$ scale, it is hard to deal 
+ with modifications of $x$ without readjusting other network parameters.
  
 \end{itemize}
 
