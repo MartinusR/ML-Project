@@ -76,7 +76,6 @@ class SpikeNetwork(object):
         self.T_vect = self.T * np.ones(N)  # Thresholds
         self.exps = dict()   
 
-        self.D = np.zeros((self.I, self.N))     # Decoder
 
     def init_F(self):
         """
@@ -180,7 +179,7 @@ class SpikeNetwork(object):
     def respond_signal(self, exp_name, x, learn=False):
         """
         supply the signal, run the simulation, return the result
-        mainly used for test purposes
+        mainly when the neuron is already trained to see the result
         """
         self.supply_input(exp_name, x)
         self.simulate(exp_name, learn=learn)
