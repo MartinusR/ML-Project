@@ -41,6 +41,7 @@ class SpikeNetwork(object):
 
     # network parameters
     delta_t = 1e-3
+    lamb_x = 50
     lamb = 50
     T = 0.5
     sigma_V = 1e-3
@@ -92,7 +93,7 @@ class SpikeNetwork(object):
         self.Omega = self.omega * np.eye(self.N)
 
     def init_exp(self, exp_name):
-        self.exps[exp_name] = ExpData(self.N, self.delta_t, self.lamb)
+        self.exps[exp_name] = ExpData(self.N, self.delta_t, self.lamb_x)
 
     def supply_input(self, exp_name, x, erase=False):
         """
@@ -141,7 +142,7 @@ class SpikeNetwork(object):
             + self.delta_t * np.dot(self.F, c)
             + np.dot(self.Omega, exp.o[-1])
             + self.sigma_V * np.random.randn(self.N))
-        r = (1 - self.lamb*self.delta_t) * exp.r[-1] + exp.o[-1]
+        r = (1 - self.lamb * self.delta_t) * exp.r[-1] + exp.o[-1]
 
         # We check if a neuron fires a spike
         o = np.zeros(self.N)
