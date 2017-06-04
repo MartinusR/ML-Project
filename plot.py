@@ -78,6 +78,41 @@ class simulation(object):
 
         return np.array(firing_rates)
 
+    def compute_stats(self, nb_points=20, redundancy=10, sample_len=100, radius=10):
+        ffs = []
+        cvs = []
+
+        for angle in np.linspace(-180, 180, nb_points):
+            x0 = [radius * np.cos(angle / 180 * np.pi), radius * np.sin(angle / 180 * np.pi)]
+            x = np.array([x0 for _ in range(sample_len)])
+            firing_rates = []
+            isi = [[] for _ in range(20)]
+            for _ in range(redundancy):
+                self.net.init_exp('tuning')
+                self.net.supply_input('tuning', x)
+                self.net.simulate('tuning', learn=False)
+                exp = self.net.get_exp('tuning')
+                firing_rates.append(np.sum(exp.o, axis=0))
+                o = np.array(exp.o)
+
+                for neuron in range(len(o[0])):  # 20
+                    firing_times = np.nonzero(o[:, neuron])[0]
+                    isi[neuron] += list(np.diff(firing_times))
+            ff = np.std(firing_rates, axis=0) ** 2 / np.mean(firing_rates, axis=0)
+            cv = np.zeros((20,))
+
+            for neuron in range(20):
+                cv[neuron] = np.std(isi[neuron]) / np.mean(isi[neuron])
+            # We Replace nan with zeros
+            # ff = np.nan_to_num(ff)
+            # cv = np.nan_to_num(cv)
+
+            ffs.append(ff)
+            cvs.append(cv)
+        ffs = np.array(ffs)
+        cvs = np.array(cvs)
+        return np.mean(ffs[~np.isnan(ffs)]), np.mean(cvs[~np.isnan(cvs)])
+
     def show_tuning_curves(self, nb_points=100, sample_len=100, radius=None):
         if radius is None:
             radius = self.sigma
