@@ -43,4 +43,23 @@ class simulation(object):
                 self.reconstructions_errors.append(err)
             self.iter_num += nb
 
+    def tuning_curves(self, nb_points=100, sample_len=100, radius=10):
+        firing_rates = []
+        for angle in np.linspace(-180, 180, nb_points):
+            x0 = [radius * np.cos(angle / 180 * np.pi), radius * np.sin(angle / 180 * np.pi)]
+            x = np.array([x0 for _ in range(sample_len)])
+            self.net.init_exp('tuning')
+            self.net.supply_input('tuning', x)
+            self.net.simulate('tuning', learn=False)
+            exp = self.net.get_exp('tuning')
+            firing_rates.append(np.sum(exp.o, axis=0))
+
+        return np.array(firing_rates)
+
+    def show_tuning_curves(self, nb_points=100, sample_len=100, radius=10):
+        tuning_curves = self.tuning_curves(nb_points=nb_points, sample_len=sample_len, radius=radius)
+        plt.plot(np.linspace(-180, 180, nb_points), tuning_curves)
+        plt.axis([-180, 180, 0, np.max(tuning_curves)])
+        plt.show()
+
 
