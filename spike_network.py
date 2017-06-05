@@ -2,35 +2,69 @@ import numpy as np
 from utility import set_all_args
 
 
+class NoMoreDataError(Exception):
+    pass
+
+
+class ExpData(object):
+
+    def __init__(self, N, delta_t, lamb):
+        self.tau = 1               # Time
+        self.V = [np.zeros(N)]     # Membrane potentials through time
+        self.o = [np.zeros(N)]     # Output spikes
+        self.r = [np.zeros(N)]     # Filtered output spikes
+        self.delta_t = delta_t
+        self.lamb = lamb
+
+    @property
+    def x(self):
+        return self._x
+
+    @x.setter
+    def x(self, x):
+        self._x = x
+        self.c = (
+            (self.x[1:]-self.x[:-1]) / self.delta_t + self.lamb * self.x[:-1])
+
+
 class SpikeNetwork(object):
+    """
+    delta_t: time step
+    lamb: 1/lamb = charac time, attention to relation between c and lamb
+    T: threshold
+    alpha: this shall depend on x (big x -> small alpha)
+
+    Attention:
+    delta_t * c should be close to V (so close to T)
+    alpha * x should be close to F (and F * x close to V)
+    """
 
     # network parameters
     delta_t = 1e-3
+    lamb_x = 50
     lamb = 50
     T = 0.5
     sigma_V = 1e-3
     sigma_T = 2e-2
-    epsilon_Omega = 1e-4
-    epsilon_F = 1e-5
+    epsilon_Omega = 1e-2
+    epsilon_F = 1e-3
     alpha = 0.2
     beta = 1.25
     mu = 0.1
     gamma = 0.8
     omega = -0.5
 
-    def __init__(self, N, I, x,  F=None, Omega=None, **kwargs):
+    def __init__(self, N, I, F=None, Omega=None, **kwargs):
         """
         :param N: number of neurons
         :param I: dimension of input
-        :param x: vector of input
         :param F: Input weights
         :param Omega: recurrent weights
         :param kwargs: other parameters
         """
-
         self.N = N
         self.I = I
-        self.x = x
+        set_all_args(self, kwargs)
 
         self.F = F
         if F is None:
@@ -40,25 +74,14 @@ class SpikeNetwork(object):
         if Omega is None:
             self.init_Omega()
 
-        self.T_vect = self.T * np.ones(N)       # Thresholds
-        set_all_args(self, kwargs)
-        # a list of pairs
-        self.tau = 1
-        self.V = [np.zeros(self.N)]             # Membrane potentials through time
-        self.o = [np.zeros(self.N)]             # Output spikes
-        self.r = [np.zeros(self.N)]             # Filtered output spikes
+        self.T_vect = self.T * np.ones(N)  # Thresholds
+        self.exps = dict()   
 
-        self.D = np.zeros((self.I, self.N))     # Decoder
-
-        # Tmp, for debug
-        self.spike = None
-        self.avg_post = 0
-        self.nb_spikes = 0
-        self.avg_pre = 0
 
     def init_F(self):
         """
-        Initializes input weights randomly, and normalizes them to length gamma.
+        Initializes input weights randomly, 
+        and normalizes them to length gamma.
         """
         self.F = np.random.randn(self.N, self.I)
         self.F *= self.gamma / np.linalg.norm(self.F, axis=1)[:,None]
@@ -69,27 +92,57 @@ class SpikeNetwork(object):
         """
         self.Omega = self.omega * np.eye(self.N)
 
+    def init_exp(self, exp_name):
+        self.exps[exp_name] = ExpData(self.N, self.delta_t, self.lamb_x)
 
-    def step(self):
+    def supply_input(self, exp_name, x, erase=False):
+        """
+        To simulate the network first supply the input signal
+        :param x: vector of input
+        """
+        if exp_name not in self.exps:
+            print("You supply new data")
+            self.init_exp(exp_name)
+            self.exps[exp_name].x = x
+        elif hasattr(self.exps[exp_name], 'x') and not erase:
+            print("You add data to an experience that already exists")
+            self.exps[exp_name].x = np.append(self.exps[exp_name].x, x, axis=0)
+        elif hasattr(self.exps[exp_name], 'x'):
+            #print("You erase old data")
+            self.init_exp(exp_name)
+            self.exps[exp_name].x = x
+        else:
+            print("You supply new data")
+            self.exps[exp_name].x = x
+
+    def get_exp(self, exp_name):
+        if exp_name not in self.exps:
+            raise ValueError("This experience is not yet set")
+        exp = self.exps[exp_name]
+        if not hasattr(exp, 'x'):
+            raise ValueError("This exprience doesn't have input signal")
+        return exp
+
+    def step(self, exp_name, learn=True):
         """
         Computes one step of propagation and weight updates.
+        Notice that we don't put self.delta_t with self.o, 
+        just a scaling problem
         """
+        exp = self.get_exp(exp_name)
+        if exp.tau == len(exp.x):
+            print("no more input data available, please supply new data or "
+                  "reset the experience by running the method init_exp")
+            raise NoMoreDataError
+
+        c = exp.c[exp.tau-1]
+
         # We update the values of inputs and membrane potentials
-        c = (self.x[self.tau] - self.x[self.tau-1] 
-            + self.lamb * self.delta_t * self.x[self.tau-1])
-        
-        V = ((1 - self.lamb * self.delta_t) * self.V[-1]
+        V = ((1 - self.lamb * self.delta_t) * exp.V[-1]
             + self.delta_t * np.dot(self.F, c)
-            + np.dot(self.Omega, self.o[-1])
+            + np.dot(self.Omega, exp.o[-1])
             + self.sigma_V * np.random.randn(self.N))
-
-        r = (1 - self.lamb*self.delta_t) * self.r[-1] + self.o[-1]
-
-        # TMP: Saves the membrane potentials after each spike
-        if self.spike is not None:
-            self.avg_post += V[self.spike]
-            self.nb_spikes += 1
-        self.spike = None
+        r = (1 - self.lamb * self.delta_t) * exp.r[-1] + exp.o[-1]
 
         # We check if a neuron fires a spike
         o = np.zeros(self.N)
@@ -97,54 +150,82 @@ class SpikeNetwork(object):
 
         if V[n] > self.T_vect[n]:
             # Neuron n fires
-
-            # TMP : saves potential before spike
-            self.spike = n
-            self.avg_pre += V[n]
-
             o[n] = 1
-
             # Updates weights
-            self.F[n] += (
-                self.epsilon_F*(self.alpha*self.x[self.tau-1]-self.F[n]))
-            self.Omega[:, n] -= (
-                self.epsilon_Omega*(self.beta*(V+self.mu*r)+self.Omega[:, n]))
-            self.Omega[n, n] -= self.epsilon_Omega * self.mu
+            if learn:
+                self.update_F(exp, n)
+                self.update_Omega(V, r, n)
 
-        self.V.append(V)
-        self.r.append(r)
-        self.o.append(o)
+        exp.V.append(V)
+        exp.r.append(r)
+        exp.o.append(o)
+        exp.tau += 1
 
-        self.tau += 1
+    def update_F(self, exp, n):
+        self.F[n] += (
+            self.epsilon_F * (self.alpha*exp.x[exp.tau-1] - self.F[n]))
+        
+    def update_Omega(self, V, r, n):
+        self.Omega[:, n] -= (
+            self.epsilon_Omega * (self.beta*(V+self.mu*r)+self.Omega[:, n]))
+        self.Omega[n, n] -= self.epsilon_Omega * self.mu
 
-    def simulate(self, iter_num=None):
+
+    def simulate(self, exp_name, learn=True, iter_num=None):
+        exp = self.get_exp(exp_name)
         if iter_num is None:
-            iter_num = len(self.x) - 1
+            iter_num = len(exp.x) - exp.tau
         for _ in range(iter_num):
-            self.step()
+            try:
+                self.step(exp_name, learn=learn)
+            except NoMoreDataError:
+                return
 
-    def compute_decoder(self):
+    def respond_signal(self, exp_name, x, learn=False):
         """
-        Computes the optimal decoder according to the observed responses and input.
+        supply the signal, run the simulation, return the result
+        mainly when the neuron is already trained to see the result
+        """
+        self.supply_input(exp_name, x, erase=True)
+        self.simulate(exp_name, learn=learn)
+        return self.get_exp(exp_name)
+
+    def compute_decoder(self, exp_name):
+        """
+        Computes the optimal decoder according to the observed responses 
+        and input in some experience
         We use here the explicit formula for optimal D, being given x and r.
         """
-        # TODO The decoder may be computed on the signal, but with the final weights ? (And no more updates?)
+        exp = self.get_exp(exp_name)
         avg1 = np.zeros((self.I, self.N))
         avg2 = np.zeros((self.N, self.N))
-        nb = len(self.r)
-
-        for i in range(nb):
-            r = self.r[i]
-            x = self.x[i]
-
+        for i in range(len(exp.x)):
+            r = exp.r[i]
+            x = exp.x[i]
             avg1 += np.outer(x, r)
             avg2 += np.outer(r, r)
+        avg1 /= len(exp.x)
+        avg2 /= len(exp.x)
+        exp.D = np.dot(avg1, np.linalg.pinv(avg2))
 
-        avg1 /= nb
-        avg2 /= nb
+    def decode(self, decoder_name, exp_name):
+        exp = self.get_exp(decoder_name)
+        if not hasattr(exp, 'D'):
+            self.compute_decoder(decoder_name)
+        exp2 = self.get_exp(exp_name)
+        return exp2.x, [np.dot(exp.D, r) for r in exp2.r]
 
-        self.D = np.dot(avg1, np.linalg.inv(avg2))
+    def reset(self, weights=False):
+        if weights:
+            self.init_F()
+            self.init_Omega()
+        self.exps = dict()
+    
+    """
+    def compute_another_x(self, x):
+        for i in range(len(self.x)-1):
+            self.x[i+1] = (
+                self.x[i] + (-self.lamb * self.x[i] 
+                + self.c[i]) * self.delta_t)
+    """
 
-    def decode(self):
-        # TODO Idem : May be computed with final weights ?
-        return [np.dot(self.D, r) for r in self.r]

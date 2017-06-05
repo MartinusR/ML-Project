@@ -1,40 +1,15 @@
 import numpy as np
-from scipy import signal
+from scipy import signal, ndimage
 import matplotlib.pyplot as plt
 from spike_network import SpikeNetwork
 
 
 def input_signal(I, S, sigma, delta_t, eta):
     Gamma = int(S/delta_t)
-    #c = [sigma * np.random.randn(I) for _ in range(Gamma)]
-    """
-    x = np.zeros(Gamma)
-    x[0] = np.zeros(I)
-    for _ in range(Gamma-1):
-        x = -
-    """
-    c = []
-    #plt.ion()
-    for _ in range(I):
-        c_tmp = sigma * np.random.randn(Gamma)
-        #fig, ax = plt.subplots()
-        #plt.plot(np.linspace(0,S,Gamma),c_tmp)
-        #plt.show()
-        window = signal.gaussian(int(eta/delta_t),std=eta/delta_t/7)
-        #fig, ax = plt.subplots()
-        #plt.plot(np.linspace(0,eta,int(eta/delta_t)),window)
-        #plt.show()
-        c.append(signal.fftconvolve(c_tmp, window, mode='same'))
-        #fig, ax = plt.subplots()
-        #plt.plot(np.linspace(0,S,Gamma),c[-1])
-        #plt.show()
-    return np.transpose(np.array(c))
+    c = sigma * np.random.randn(Gamma, I)
+    return ndimage.filters.gaussian_filter1d(c, eta/delta_t/4, axis=0)
     
 
-def simulation(I, S, sigma=2e3, delta_t=1e-4, eta=6e-3):
-    x = input_signal(I, S, sigma, delta_t, eta)
-    network = SpikeNetwork(20, I, x, delta_t=delta_t)
-    return x, network
 
 
 # for the moment being, just call this function with network.o and delta_t
