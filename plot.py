@@ -1,8 +1,9 @@
 import numpy as np
 import matplotlib.pyplot as plt
+from scipy.signal import wiener
 
 from spike_network import SpikeNetwork
-from input_signal import input_signal
+from input_signal import input_signal, plot_from_o
 from utility import set_all_args
 
 
@@ -21,7 +22,7 @@ class simulation(object):
         self.S = S
         set_all_args(self, kwargs)
         self.init_network()
-        self.reconstructions_errors = []
+        self.reconstruction_errors = []
         self.avg_firing_rates = []
         self.iter_num = 0
         self.firing_rates = []
@@ -34,6 +35,10 @@ class simulation(object):
         self.exp = self.net.get_exp('learn')
 
     def adjust_network_parameters(self):
+        """
+        Please run this except that you're sure that you're using the
+        right parameters, the parameters of the network are complicated 
+        """
         x_std = np.std(self.x)
         c_std = np.std(self.exp.c)
         self.net.lamb_x = c_std / x_std
@@ -48,7 +53,7 @@ class simulation(object):
             iter_num = len(self.x)-self.iter_num-1
         assert iter_num <= len(self.x)-self.iter_num-1
         for i in range(int(np.ceil(iter_num/1000))):
-            nb = min(1000, len(self.x)-i*1000-1)
+            nb = min(1000, len(self.x)-self.iter_num-1)
             self.net.simulate('learn', iter_num=nb)
             avg_firing_rates = np.mean(np.sum(self.exp.o[-nb:], axis=0))
             self.avg_firing_rates.append(avg_firing_rates)
@@ -57,12 +62,26 @@ class simulation(object):
                     'decode', self.x[i*1000:i*1000+nb])
                 self.net.compute_decoder('decode')
                 x, x_ = self.net.decode('decode', 'decode')
-                err = np.linalg.norm(x-x_)
-                self.reconstructions_errors.append(err)
+                err = np.linalg.norm(x-x_)/1000
+                self.reconstruction_errors.append(err)
 
                 self.firing_rates.append(np.sum(self.exp.o[-1000:], axis=0))
             self.iter_num += nb
-
+            
+    def show_avg_firing_rates(self, smooth=True):
+        avg_firing_rates = self.avg_firing_rates
+        if smooth:
+            avg_firing_rates = wiener(avg_firing_rates, 51)
+        plt.plot(avg_firing_rates)
+        plt.show()
+        
+    def show_reconstruction_errors(self, smooth=True):
+        reconstruction_errors = self.reconstruction_errors
+        if smooth:
+            reconstruction_errors = wiener(reconstruction_errors, 51)
+        plt.plot(reconstruction_errors)
+        plt.show()
+        
     def tuning_curves(self, nb_points=100, sample_len=100, radius=None):
         if radius is None:
             radius = self.sigma
@@ -121,6 +140,9 @@ class simulation(object):
         plt.plot(np.linspace(-180, 180, nb_points), tuning_curves)
         plt.axis([-180, 180, 0, np.max(tuning_curves)])
         plt.show()
+
+    def plot_last_o(self, length=1000):
+        plot_from_o(self.exp.o[-length:], self.delta_t)
 
     # will be replaced by a better function
     def last_reconstruct(self):
