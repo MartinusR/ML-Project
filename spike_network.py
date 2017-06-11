@@ -46,8 +46,8 @@ class SpikeNetwork(object):
     T = 0.5
     sigma_V = 1e-3
     sigma_T = 2e-2
-    epsilon_Omega = 1e-2
-    epsilon_F = 1e-3
+    epsilon_Omega = 5*1e-3
+    epsilon_F = 5*1e-4
     alpha = 0.2
     beta = 1.25
     mu = 0.1
